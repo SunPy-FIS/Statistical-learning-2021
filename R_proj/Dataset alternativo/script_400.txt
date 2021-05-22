@@ -1,0 +1,10 @@
+
+### da: https://www.kaggle.com/kriegsmaschine/soccer-players-values-and-their-statistics?select=transfermarkt_fbref_201718.csv
+
+setwd("C:\\Users\\vrsac\\Downloads")
+dataset = read.csv(file.choose(), skip = 1, header = F, sep = ";", stringsAsFactors = T)
+header1 = read.csv(file.choose(), header=F, sep=",")
+colnames(dataset) = header1
+
+library(DataExplorer)
+DataExplorer::create_report(dataset)

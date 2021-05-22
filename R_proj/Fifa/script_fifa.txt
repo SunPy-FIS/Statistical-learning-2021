@@ -1,0 +1,55 @@
+
+setwd("C:\\Users\\vrsac\\Downloads\\Statistical-learning-2021-main\\Statistical-learning-2021-main")
+dataset = read.csv(file.choose())
+
+# remove variables not interesting like ID, name, team, endofcontract difficult to treat because too many levels
+names(dataset)
+dataset = dataset[, -c(1,2,4,7,17)]
+
+dataset$Preferred.Foot = as.factor(dataset$Preferred.Foot)
+dataset$Work.Rate = as.factor(dataset$Work.Rate)
+dataset$Best.Position = as.factor(dataset$Best.Position)
+
+# from r documentation in ?pairs
+panel.hist <- function(x, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(usr[1:2], 0, 1.5) )
+  h <- hist(x, plot = FALSE)
+  breaks <- h$breaks; nB <- length(breaks)
+  y <- h$counts; y <- y/max(y)
+  rect(breaks[-nB], 0, breaks[-1], y, col = "cyan", ...)
+}
+
+png("pairs.png", height = 10000, width = 10000, res=120, pointsize = 30)
+pairs(dataset, diag.panel = panel.hist, bg = "light blue", cex.labels = 0.5, font.labels = 0.5)
+dev.off()
+
+nums <- unlist(lapply(dataset, is.numeric)) 
+correl = cor(dataset[,nums], use = "pairwise.complete.obs")
+
+png("heatmap.png", height = 10000, width = 10000, res=120, pointsize = 200)
+heatmap(correl, symm=TRUE, scale = "none", Colv = NA, Rowv = NA, cexRow = 0.5, cexCol = 0.5)
+dev.off()
+
+png("istog.png", height = 10000, width = 10000, res=120, pointsize = 50)
+par(mfrow=c(7,7))
+for (i in 1:ncol(dataset)){
+  if (nums[i] == TRUE) hist(dataset[,i], xlab = NA, main = paste("Histogram of" , names(dataset)[i]))
+}
+dev.off()
+
+mod1 = lm(dataset$Value ~ ., data = dataset)
+summary(mod1)
+
+mod2 = lm(dataset$Release.Clause ~ ., data = dataset)
+summary(mod2)
+
+mod3 = lm(dataset$Agility ~ ., data = dataset)
+summary(mod3)
+
+mod_real = lm(dataset$Value ~ dataset$Age + dataset$Wage + dataset$Preferred.Foot + dataset$Jersey.Number + dataset$Height + dataset$Weight + dataset$Best.Position + dataset$Release.Clause)
+summary(mod_real)
+
+mod_real2 = lm(dataset$Value ~ dataset$Age + dataset$Wage + dataset$Preferred.Foot + dataset$Jersey.Number + dataset$Height + dataset$Weight + dataset$Best.Position)
+summary(mod_real2)
