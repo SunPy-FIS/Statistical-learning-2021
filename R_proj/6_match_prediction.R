@@ -1,5 +1,5 @@
 rm(list=ls())
-setwd("C:/Users/Amministratore/Desktop/Universit‡/Anno 2/Statistical Learning/new")
+setwd("C:/Users/Amministratore/Desktop/Universit√†/Anno 2/Statistical Learning/new")
 elo = read.csv("EloMatrix.csv", header = T, stringsAsFactors = T, encoding = "UTF-8")
 match = read.csv("new_seriea2021.csv", header = T, stringsAsFactors = T, encoding = "UTF-8")
 
