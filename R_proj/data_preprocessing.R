@@ -1,6 +1,6 @@
 library(readr)
 rm(list=ls())
-setwd("C:/Users/Amministratore/Desktop/Universit‡/Anno 2/Statistical Learning")
+setwd("C:/Users/Amministratore/Desktop/Universit√†/Anno 2/Statistical Learning")
 df = read.csv("players_21.csv", 
               header = T,
               na.strings = c("NA", "NAN", "nan", "na"))
