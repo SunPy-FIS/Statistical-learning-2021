@@ -3,7 +3,7 @@ library(elo)
 library(base)
 
 rm(list=ls())
-setwd("C:/Users/Amministratore/Desktop/Universit‡/Anno 2/Statistical Learning/new")
+setwd("C:/Users/Amministratore/Desktop/Universit√†/Anno 2/Statistical Learning/new")
 match = read.csv("seriea2021.csv", header = T, stringsAsFactors = T, encoding = "UTF-8")[,-c(8:105)]
 
 # ------------------------------------------------------------
