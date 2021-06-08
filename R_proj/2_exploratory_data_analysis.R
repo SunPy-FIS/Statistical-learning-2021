@@ -1,5 +1,5 @@
 rm(list=ls())
-setwd("C:/Users/Amministratore/Desktop/Universit‡/Anno 2/Statistical Learning")
+setwd("C:/Users/Amministratore/Desktop/Universit√†/Anno 2/Statistical Learning")
 df = read.csv("new_2_FIFA21_official_data.csv", header = T, stringsAsFactors = T)
 
 # ------------------------------------------------------------
