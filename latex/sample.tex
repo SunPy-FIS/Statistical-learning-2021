@@ -1,0 +1,291 @@
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND THEMES
+%----------------------------------------------------------------------------------------
+\documentclass[aspectratio=169,xcolor=dvipsnames]{beamer}
+\usetheme{Simple}
+
+\usepackage{hyperref}
+\usepackage{graphicx} % Allows including images
+\usepackage{booktabs} % Allows the use of \toprule, \midrule and \bottomrule in tables
+
+%----------------------------------------------------------------------------------------
+%	TITLE PAGE
+%----------------------------------------------------------------------------------------
+
+% The title
+\title[short title]{Can We Use FIFA Videogame Data in Soccer Analytics?}
+\subtitle{Statistical Learning Project}
+
+\author {Alvise Dei Rossi\footnote{ID: 2004250} - Lorenzo Corrado\footnote{ID: 2020623} - Riccardo Vinco\footnote{ID: 2005800}}
+
+\institute[UNIPD] % Your institution may be shorthand to save space
+{
+    % Your institution for the title page
+    Department of Mathematics "Tullio Levi-Civita" \\
+    MS in Data Science \\
+    University of Padua
+    \vskip 3pt
+}
+\date{A.Y. 2020/2021} % Date, can be changed to a custom date
+
+%----------------------------------------------------------------------------------------
+%	PRESENTATION SLIDES
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+
+%------------------------------------------------
+
+\begin{frame}
+    % Print the title page as the first slide
+    \titlepage
+\end{frame}
+
+\begin{frame}{Overview}
+    % Throughout your presentation, if you choose to use \section{} and \subsection{} commands, these will automatically be printed on this slide as an overview of your presentation
+    \tableofcontents
+\end{frame}
+
+%------------------------------------------------
+
+\section{Introduction}
+
+%------------------------------------------------
+\begin{frame}{Introduction}
+\begin{itemize}
+    \item Soccer is the most popular sport in the world, both for the number of players and for the number of spectators. The soocer industry is worth about \$471 billion in 2018 and predictions say it will be worth about \$600 billion in 2025 \cite{1}
+    
+    \item Despite the huge following that this sport has and the large number of spectators, analysts and professionals, it is still very difficult to make predictions in football, both for the absence of adequate datasets and for the intrinsic difficulty in modeling events in this sport \cite{2}
+    
+    \item Given the enormous success that this sport has over time, several simulation video games have been developed.
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}{Introduction - II}
+\begin{itemize}
+\item FIFA 20 is the most popular football video game, developed by EA Sports, available for the major videogame consoles. The video game is distributed all over the world and sold, in the year 2020, about 115 million copies for a billionaire turnover.
+\end{itemize}
+\begin{figure}[H] 
+\begin{center} 
+  % Requires \usepackage{graphicx} 
+  \includegraphics[width=7.5cm]{fifa20.jpg}\\ 
+  % \caption{} 
+\end{center} 
+\end{figure}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}{Introduction - III}
+\begin{itemize}
+\item To ensure a high quality simulation, EA Sports uses a large number of soccer scouts for the evaluation of the characteristics and attributes for players from all over the world, but this characterization of the players is a difficult job
+
+\item The aim of this project is to establish if there is a relationship (and how strong it is) between the player's in-game statistics with the real world
+
+% \item As we can see each attribute goes from 0 to 100
+
+\item We believe that in-game statistics can also be a very important data resource for many statistical analysis applications in soccer
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}{Introduction - IV}
+\begin{itemize}
+
+\item A professional soccer player is assigned a series of statistics, more than 20, that are representative of his in-real characteristics and consider all the major leagues in the world.
+\end{itemize}
+\begin{figure}[H] 
+\begin{center} 
+  % Requires \usepackage{graphicx} 
+  \includegraphics[width=13.5cm]{fine.jpg}\\ 
+  % \caption{} 
+\end{center} 
+\end{figure}
+\begin{itemize}
+
+\item The quality of the estimation of these characteristics is fundamental in a soccer simulation game. Player stats are therefore expected to be consistent with the real world. 
+\end{itemize}
+\end{frame}
+
+%------------------------------------------------
+
+\section{Data and Preprocessing}
+
+%------------------------------------------------
+\begin{frame}{Data and Preprocessing}
+\begin{itemize}
+
+    \item The FIFA 21 dataset we used contains 18,944 players, on which 106 variables were measured. For example, players are represented by:
+\end{itemize}
+\begin{small}
+\begin{table} [ht]
+\centering
+\begin{tabular}{ccccccccc} 
+  \hline
+    & sofifa\_id & short\_name & age & height\_cm & weight\_kg & nationality & \dots \\
+    \hline
+    1 & 158023 & L. Messi &  33 & 170 &  72 & Argentina & \dots\\ 
+    \dots & &  &  & \dots &  & & \dots \\ 
+    16 & 202126 & H. Kane & 26 & 188 &  89 & England & \dots\\ 
+    \dots & &  &  & \dots &  & & \dots \\ 
+    18944 & 257936 & Song Yue & 28 & 185 & 79 & China PR & \dots\\
+    \hline
+\end{tabular}
+\end{table}
+\end{small}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}{Data and Preprocessing}
+\begin{small}
+\begin{block}{Quantitative variables in the dataset}
+\begin{table}[ht]
+\centering
+\begin{tabular}{cccccc}
+    FIFA ID & Age & Height & Weight & League rank & Overall\\ 
+    Potential & Value & Wage & Reputation & Weak foot & Skill moves\\
+    Physic & Crossing & Finishing & Heading & Short passing & Volleys\\
+    Dribbling & Curve & Fk accuracy & Long passing & Ball Control & Acceleration\\
+    Sprint speed & Agility & Reactions & Balance& Shot power&  Jumping\\   
+    Stamina & Strength & Long shots & Aggression & Interceptions& Positioning\\
+    Vision&  Penalties & Composure & Standing tackle& Sliding tackle & Gk Diving\\
+    Gk handling & Gk kicking& Gk positioning & Gk reflexes
+\end{tabular}
+\end{table}
+\end{block}
+\end{small}
+\begin{small}
+\begin{block}{Categorical variables in the dataset}
+\begin{table}[ht]
+\centering
+\begin{tabular}{cccc}
+  Short Name & Nationality & Club name & League name\\
+  Player positions & Preferred foot & Work rate & Team position
+\end{tabular}
+\end{table}
+\end{block}
+\end{small}
+\end{frame}
+
+%------------------------------------------------
+
+\section{Exploratory Data Analysis}
+
+%------------------------------------------------
+\begin{frame}{Exploratory Data Analysis}
+\begin{figure}[H] 
+\begin{center} 
+  % Requires \usepackage{graphicx} 
+  \includegraphics[width=10cm]{images.png}\\ 
+  % \caption{} 
+\end{center} 
+\end{figure}
+\end{frame}
+
+%------------------------------------------------
+
+\section{Models Estimation}
+
+%------------------------------------------------
+
+%------------------------------------------------
+
+\begin{frame}{Models Estimation}
+\begin{table}[ht]
+\centering
+\begin{tabular}{cc}
+  \hline
+    Categorical variables & Quantitative variables \\ 
+  \hline
+    International reputation & Overall \\ 
+        & Potential \\ 
+        & Age \\ 
+   \hline
+\end{tabular}
+\caption{Predictors of Model 1 and Model 2}
+\end{table}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}{Models Estimation}
+\begin{table}[ht]
+\centering
+\begin{tabular}{cc}
+  \hline
+    Categorical variables & Quantitative variables \\ 
+  \hline
+    International reputation & Overall \\ 
+        & Potential \\ 
+        & Age \\ 
+   \hline
+\end{tabular}
+\caption{Predictors of Model 2.}
+\end{table}
+\end{frame}
+
+%------------------------------------------------
+
+\section{Residuals Analysis}
+
+%------------------------------------------------
+
+%------------------------------------------------
+
+\section{Interpretation}
+
+%------------------------------------------------
+
+%------------------------------------------------
+
+\section{Applications}
+
+%------------------------------------------------
+
+%------------------------------------------------
+
+\section{Conclusions and Future Works}
+
+%------------------------------------------------
+
+%------------------------------------------------
+
+\section{References}
+
+%------------------------------------------------
+
+%------------------------------------------------
+
+\begin{frame}[fragile] % Need to use the fragile option when verbatim is used in the slide
+    \frametitle{Citation}
+    An example of the \verb|\cite| command to cite within the presentation:\\~
+
+    This statement requires citation \cite{p1}.
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}{References}
+    % Beamer does not support BibTeX so references must be inserted manually as below
+    \footnotesize{
+        \begin{thebibliography}{99}
+            \bibitem[Smith, 2012]{p1} John Smith (2012)
+            \newblock Title of the publication
+            \newblock \emph{Journal Name} 12(3), 45 -- 678.
+        \end{thebibliography}
+    }
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+    \Huge{\centerline{The End}}
+\end{frame}
+
+%------------------------------------------------
+
+\end{document}
