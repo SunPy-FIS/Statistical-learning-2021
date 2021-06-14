@@ -1,6 +1,8 @@
-## data preprocessing
-
-## TO ADD
+#-------------------------------------------------
+## This script does not contain all the work
+## in the report as the report does not contain
+## all the work in this script. 
+#-------------------------------------------------
 
 # data loading
 
