@@ -1,0 +1,1024 @@
+---
+title: "Can we use FIFA videogame data in soccer analytics?"
+author: " Alvise Dei Rossi (2004250), Lorenzo Corrado (2020623), Riccardo Vinco (2005800)"
+date: "A.A. 2020/2021"
+output: 
+  html_document:
+    toc: true
+    theme: readable
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.align="center")
+options(warn = -1)
+```
+<style>
+body {
+text-align: justify}
+
+h2 {
+padding-left: 45px;
+color: IndianRed
+}
+
+h5{
+padding-left: 18px
+}
+
+h1.title {
+  text-align: center;
+  color: Navy
+}
+h4.author { 
+  text-align: center;
+}
+h4.date { 
+  text-align: center;
+}
+</style>
+
+## Introduction 
+
+Football is one of the most important sports in all the world. Events like the World Championship are very popular and have a huge resonance on the media. We are now approaching the European Championship, and it is simple to feel the importance of this event. For our project, we are interested in understanding if the value can be related to the ability of a player. We will analyze a dataset looking for this relationship. With the best model found we will look the most overrated and underrated players indicated by the model. The practical side of this analysis spaces from a basic usage in the rising field of e-sports to real field market considerations. Another application is to use our data to train three statistical models to try to predict the outcomes (and their probabilities) of matches in the lastest Serie A league season.   
+
+The whole project is primarely based on a _Kaggle_ dataset that contains the statistics about football players in the famous videogame FIFA (<https://www.kaggle.com/stefanoleone992/fifa-21-complete-player-dataset>). The whole project, is based on 2020/2021 championships data. The choice of the dataset was determined by its cheapness and by the presence of many statistics useful for the videogame but difficult to get in the real world. It is in fact difficult to assign a value from 0 to 100 regarding different abilities like defending, ball control or crossing to all the players in the world. FIFA game is bound in defining these values for the game. Even though they're fictitious and simulated, we are interested in their possible usefulness in real world applications. The only value strictly related to reality is the value of the players, which the game takes from sites like <https://www.transfermarkt.it/uefa-champions-league/marktwerte/pokalwettbewerb/CL> at the release. The choice of modelling the value based on the other "simulated" statistics is so a way to see if, in general, we can take the dataset as valid for other analysis. The main project is going to focus on modeling the value, and at the end the two applications will be shown. From the results of the applications we are going to determine if the FIFA dataset has the potential to be used in real applications. 
+
+## Initial data: Dataset and exploratory analysis 
+
+To perform the analysis, we start from looking at the dataset. This dataset does not require a lot of preprocessing in order to be used. Beforehand, certain variables with uncertain meaning has been removed (i.e. rb, rf, rw, etc.). Some other particular variables were removed, like information about loaning and images. All the records with at least one Not Available entry were also removed. A last modification was to remove the goalkeepers because they do not share some variables with the other players, so they would require a separate analysis. This preprocessing analysis is reported here in an inactive R code chunk.  
+
+```{r}
+#library(readr)
+#rm(list=ls())
+#setwd("C:/Users/Amministratore/Desktop/Università/Anno 2/Statistical Learning")
+#df = read.csv("players_21.csv", 
+#              header = T,
+#              na.strings = c("NA", "NAN", "nan", "na"))
+
+## ------------------------------------------------------------
+## Dataset description
+## ------------------------------------------------------------
+#dim(df)
+#str(df)
+#summary(df)
+#colnames(df)
+
+## ------------------------------------------------------------
+## Select only usefull variables
+## ------------------------------------------------------------
+#delete_columns= c("player_url", 
+#                  "long_name", 
+#                  "dob",
+#                  "body_type", 
+#                  "real_face", 
+#                  "release_clause_eur",
+#                  "player_tags", 
+#                  "team_jersey_number",
+#                  "loaned_from", 
+#                  "joined", 
+#                  "contract_valid_until", 
+#                  "nation_position",
+#                  "nation_jersey_number", 
+#                  "player_traits",
+#                  "defending_marking")
+#df_new = df[, !names(df) %in% delete_columns] 
+#df_new = df_new[,-c(66:91)]
+
+## ------------------------------------------------------------
+## Find na values in the dataset and omit them
+## ------------------------------------------------------------
+#df_gk = df_new[df$player_positions=="GK",]
+#df_pl = df_new[df_new$player_positions!="GK",]
+
+#sum.is.na = function(vector){
+#  sum(is.na(vector))
+#}
+
+#apply(df_gk, 2, sum.is.na)
+#df_gk = na.omit(df_gk[,-c(21:26)])
+#apply(df_gk, 2, sum.is.na)
+
+#apply(df_pl, 2, sum.is.na)
+#df_pl = na.omit(df_pl[,-c(27:32)])
+#apply(df_pl, 2, sum.is.na)
+
+## ------------------------------------------------------------
+## Remove last 0 components
+## ------------------------------------------------------------
+#df_gk[df_gk$value_eur == 0, "short_name"] = NA
+#df_gk = na.omit(df_gk)
+
+#df_pl[df_pl$value_eur == 0, "short_name"] = NA
+#df_pl = na.omit(df_pl)
+
+## ------------------------------------------------------------
+## New dataset in output
+## ------------------------------------------------------------
+#write_csv(df, file = "players_21_preproc_pl.csv")
+#write_csv(df, file = "players_21_preproc_gk.csv")
+```
+
+
+Let's start with importing the dataset. We call it ***_df_*** and we take strings values as factors. We import it like a data frame and we look for its general structure. The dataset takes into consideration 58 variables. No NA entries are present and all players have a positive value for our variable of interest ***_value_eur_***.
+
+```{r}
+this.dir <- getwd()
+setwd(this.dir)
+df = read.csv("players_21_preproc_pl.csv", stringsAsFactors = T, encoding = "UTF-8")
+#df = read.csv(file.choose(), stringsAsFactors = T)
+df <- data.frame(df)
+#is.data.frame(df)
+cat("Are there any NAs? ", any(is.na(df)))
+cat("Number of players with invalid money value: ", sum(df$value_eur <= 0.0))
+df = df[df$league_rank == 1,]
+df = df[,-c(9)]
+```
+
+For our purposes, we are going to consider only those players who belong to a top tier league. This reduces our entries to the number of `r nrow(df)`. A general idea of which variables are included and what type and values they can take can be seen in this frame.
+
+```{r}
+str(df)
+```
+
+There are 8 factor variables and 50 numeric variables. All the numeric variables are _integers_ and not _real_, and this is probably given to get a smaller memory needing for storage. Some factors are really big, taking up to 609 levels. 
+
+Before starting to visualize our data, let's just see which players are valued the most and the less in the dataset.
+```{r}
+higher = sort(df$value_eur, decreasing = TRUE)[1:15]
+lower = sort(df$value_eur, decreasing = FALSE)[1:15]
+cbind(df[c(df$value_eur %in% higher),c(2,11)][1:15,],df[c(df$value_eur %in% lower),c(2,11)][1:15,])
+```
+
+We can see the huge difference between the most valued and the less valued. As said in the intro, we are interested in knowing if this difference is reflected also in the players' statistics and if the statistics themselves can suggest which players are underrated or overrated. 
+
+We now are going to perform a quick general analysis of the whole data frame in order to understand relationships and how to treat our data. We start by visualizing the histograms of the numeric variables.
+
+```{r, echo=FALSE}
+num_df = df[,unlist(lapply(df, is.numeric))]
+png("istog.png", height = 10000, width = 10000, res=120, pointsize = 50)
+par(mfrow=c(9,6))
+for (i in 1:ncol(num_df)){
+  hist(num_df[,i], xlab = NA, main = paste("Histogram of" , names(num_df)[i]), col = "lightblue")
+}
+dev.off()
+```
+```{r, echo=FALSE}
+knitr::include_graphics("istog.png")
+```
+
+We see different distributions of variables: some variables seem to be approximately normal, while others are concentrated in a small portion of values or are bimodal variables. For some variable of interest, we will look at their distribution later on.
+Let's see how variables are correlated with an heatmap:
+
+```{r}
+library(ggcorrplot)
+png("heatmap.png", height = 5000, width = 5000, res=120, pointsize = 100)
+ggcorrplot(cor(num_df), hc.order = TRUE, outline.col = "white", tl.cex = 30)
+dev.off()
+```
+```{r, echo=FALSE}
+knitr::include_graphics("heatmap.png")
+```
+
+The heatmap shows that there are some groups of variables that seem to be positively correlated. For example, all the goalkeeper statistics form one group. There are many other subgroups that represent: physical structure, defending, attacking and dribbling, value and movement. Other groups are uncorrelated like the physical variables with the movement ones. 
+
+From this brief analysis we have seen that there are some interesting variables and some other we want to get rid of. In our case we are going to exclude the ***_sofifa_id_***, that gives an unique id to a player in the game. We also exclude ***_short_name_***, ***_nationality_***, ***_club_name_*** because we are not interested in differences given by the specific teams the players play in or their nationality. ***_league_rank_*** was previously set to a unique value so it has been removed aswell. Knowing we have only players who are not goalkeepers, we remove all the statistics related to that role: ***_goalkeeping_diving_***, ***_goalkeeping_handling_***, ***_goalkeeping_kicking_***, ***_goalkeeping_positioning_***, ***_goalkeeping_reflexes_***. We have decided to remove even the ***_wage_eur_*** variable, that is the one of the most correlated with the ***_value_eur_*** variable. This is done to understand better the relationship between the value and the players' strengths and characteristics as simulated by the game, rather than taking into account other money-based statistics. 
+
+```{r}
+df2 = df[,-c(1,2,6,7,12,58,57,56,55,54)]
+```
+
+In order to take into account the difference of the leagues around the world, we define a new qualitative variable ***_imp_leagues_*** from ***_league_name_*** that separates important european teams versus the rest of the world. We in fact know that in some leagues in Europe are concentrated the most important players of the world, so this distinction can be really helpful. We then discard ***_league_name_***.
+
+```{r}
+imp_leagues <- c("English Premier League", "French Ligue 1", "German 1. Bundesliga", "Holland Eredivisie", "Italian Serie A", "Portuguese Liga ZON SAGRES", "Russian Premier League", "Spain Primera Division")
+df2$imp_league <- as.factor(df$league_name %in% imp_leagues)
+```
+
+A last modification is to deal with the qualitative variables ***_player_positions_*** and ***_team_position_***. They are very similar and can take a huge amount of different values. To not discard this information completely, we are going to redefine the role of a player based on these and forming a variable ***_position_*** with values: attack, middle, defence, sub. The idea is that, for the value variable, it doesn't matter the precise role (i.e. right defender vs left defender), but only the general position in the football field.  
+
+```{r out.width = '50%', fig.align="center"}
+att <- c("LW","LF","CF","ST","RW","RF","LS","RS","LAM") # 9 attack positions
+mid <- c("LM","CDM","CM","CAM","RM","RCM","LCM","LDM","RAM","RDM","RES") # 11 mid positions
+def <- c("LB","LWB","RB","RWB","GK","LCB","RCB","CB") # 8 def positions
+
+df$position = rep(NA,length(df[,1]))
+for (i in 1:length(df[,1])){
+  if (df$team_position[i] %in% att)
+    df$position[i] <- "att"
+  else if (df$team_position[i] %in% mid)
+    df$position[i] <- "mid"
+  else if (df$team_position[i] %in% def)
+    df$position[i] <- "def"
+  else
+    df$position[i] <- "sub"
+}
+df2$position <- factor(df$position)
+df2 = df2[,-c(4,8,14)]
+
+pie(table(df2$position),
+    col=rainbow(4),
+    main="Player's Position Distribution")
+```
+
+The only qualitative variables not touched are ***_preferred_foot_*** (Left vs Right) and ***_working_rate_*** which has 9 levels.
+
+As of the remaining variables, we decided to select a few that we thought could be good indications for the value attribution. These variables are: ***_age_***, ***_potential_***, ***_overall_*** and ***_international_reputation_***. We will analyze these explicative variables better, as well as train an intuitive model to be compared to the final one. But first we are going to take a closer look at our interest variable: ***_value_eur_***. 
+\
+&nbsp;
+
+##### ***Value:***
+Value reports the amount of euros needed to buy a certain player. In our case, we have decided to consider it with its usual value, but even with a logarithm (base 10) transformation. The transformation can help us achieve a better model, even if it does not provide us a perfectly normally distributed variable. By the first models we will decide which version to keep.
+
+```{r fig.align="center"}
+par(mfrow = c(2,2))
+hist(df2$value_eur, col = "darkseagreen4", main="Players value distribution", xlab = "value")
+qqnorm(df2$value_eur)
+qqline(df2$value_eur)
+hist(log10(df2$value_eur), col = "darkseagreen4", main="Players log10 value distribution", xlab = "log10(value)")
+qqnorm(log10(df2$value_eur))
+qqline(log10(df2$value_eur))
+par(mfrow=c(1,1))
+```
+
+##### ***Potential:***
+Is the value that tells about the possibility of growth proved by the player. It is a way of taking into account the possible increase of the ability of a certain player. From the plots we can see the distribution and the effect on the value variable: 
+
+```{r fig.align="center"}
+par(mfrow = c(2,2))
+hist(df2$potential, col = "indianred3", main = "Distribution of potential", xlab = "potential")
+boxplot(df2$potential, col = "indianred3", main = "Boxplot of potential")
+plot(df2$potential,df2$value_eur, xlab = "potential", ylab = "value", main = "value | potential")
+plot(df2$potential,log10(df2$value_eur), xlab = "potential", ylab = "log10(value)", main = "log10(value) | potential")
+par(mfrow = c(1,1))
+```
+
+##### ***Overall:***
+It is a general value that should represent the _overall_ ability of the player. It should resume all the others variables. The distribution and relation with the value are shown below.
+
+```{r fig.align="center"}
+par(mfrow = c(2,2))
+hist(df2$overall, col = "wheat", main = "Distribution of overall", xlab = "overall")
+boxplot(df2$overall, col = "wheat", main = "Boxplot of overall")
+plot(df2$overall,df2$value_eur, xlab = "overall", ylab = "value", main = "value | overall")
+plot(df2$overall,log10(df2$value_eur), xlab = "overall", ylab = "log10(value)", main = "log10(value) | overall")
+par(mfrow = c(1,1))
+```
+
+From this variable we have decided to define a new one called ***_category_***. This is a categorical variable meant to distinguish various categories of overall ability and can be useful to group players with a similar total ability. 
+
+```{r fig.align="center", out.width='50%'}
+df2$category <- as.factor(cut(df$overall,breaks=c(0,49,69,79,87,100),labels=c("iron","bronze","silver","gold","elite"),right = T))
+barplot(table(df2$category),
+    col=rainbow(4),
+    main="Player's Category Distribution")
+```
+
+##### ***International Reputation:***
+It is a discrete ordered value between 1 and 5 that is meant to show how famous and known a certain player is. We expect it to be positively correlated with the value:
+
+```{r fig.align="center"}
+par(mfrow = c(2,2))
+hist(df2$international_reputation, col = "lightblue", main = "Distribution of International Reputation", xlab = "international reputation")
+boxplot(df2$international_reputation, col = "lightblue", main = "Boxplot of International Reputation")
+plot(df2$international_reputation,df2$value_eur, main = "value | international reputation", xlab = "international reputation", ylab = "value")
+plot(df2$international_reputation,log10(df2$value_eur), main = "log10(value) | international reputation", xlab = "international reputation", ylab = "log10(value)")
+par(mfrow = c(1,1))
+```
+
+##### ***Age:***
+It is a discrete value that tells how old is a certain player. We expect the value to increase until the player reaches the prime of his career (usually about 27-28 years old), and then it should start decreasing.
+
+```{r fig.align="center"}
+par(mfrow = c(2,2))
+hist(df2$age, col = "goldenrod1", main = "Distribution of age", xlab = "age")
+boxplot(df2$age, col = "goldenrod1", main = "Boxplot of age")
+plot(df2$age,df2$value_eur, main = "value | age", xlab = "age", ylab = "value")
+plot(df2$age,log10(df2$value_eur), main = "log10(value) | age", xlab = "age", ylab = "log10(value)")
+par(mfrow = c(1,1))
+```
+
+In order to represent in a better and simpler way the relation we described between value and age, we decided to redefine _age_ in terms of career phase. We now create a new variable ***_phase_*** that divides the ages in 5 categories of career phase: "young", "prime", "old", "near_retirement", "last_year".
+
+```{r fig.align="center", out.width='50%'}
+df2$phase <- factor(cut(df2$age, breaks = c(15,20,32,35,38,40),right = TRUE, labels = c("young","prime","old","near_retirement","last_year")))
+plot(df2$phase, col = rainbow(5), main = "Players' Phase Distribution", xlab = "phase")
+```
+```{r}
+names <- df[,2]
+selected_df = df2
+#detach(selected_df)
+attach(selected_df)
+```
+
+From these variables plots, it can be seen that the logarithmic transformation of the value variable provides a better linear relationship with all the others. It is a first sign on the direction of choosing the transformed version of the variable.
+
+Before leaving the exploratory analysis, we perform a last control over the qualitative variables. In order to get a good model without including a lot of dummies, we look for the potential significance of the qualitative variables. We have already discarded or transformed the ones which had the greater amount of factors. Most of our concern is about the multifactorial remained. By the ANOVA test and the Siegel-Tuckey test, the only one that seems to be useless for the model is _preferred_foot_. Considering that it takes only one dummy, we have decided to not discard it until the selection of the model. In certain cases, there is not much difference between a level of a factor and another, but this is lateral to the total usefulness of the factor itself for modeling the value. Here are the test conducted:
+
+```{r}
+print("Variable = 'position':")
+mod <- lm(value_eur~position,data=selected_df)
+anova(mod)
+result <- aov(mod)
+TukeyHSD(result)
+
+print("Variable = 'preferred_foot':")
+mod <- lm(value_eur~preferred_foot,data=selected_df)
+anova(mod)
+
+print("Variable = 'imp_league':")
+mod <- lm(value_eur~imp_league,data=selected_df)
+anova(mod)
+
+print("Variable = 'work_rate':")
+mod <- lm(value_eur~work_rate,data=selected_df)
+anova(mod)
+result <- aov(mod)
+TukeyHSD(result)
+
+print("Variable = 'phase':")
+mod <- lm(value_eur~phase,data=selected_df)
+anova(mod)
+result <- aov(mod)
+TukeyHSD(result)
+
+print("Variable = 'category':")
+mod <- lm(value_eur~category,data=selected_df)
+anova(mod)
+result <- aov(mod)
+TukeyHSD(result)
+```
+
+<!-- The last step before starting to look for a model is to create a test set of 500 units. This test set is fixed and won't be used for choosing the weights of the model. It is taken for looking if the final model selected has a good fit even on unseen data.  -->
+
+```{r}
+set.seed(43)
+#random_idxs <- runif(500,min=1,max=length(df[,1]))
+#test_set <- selected_df[random_idxs,]
+#selected_df <- selected_df[-random_idxs,]
+x = selected_df[,-c(9,10)] # evitate linear dependence
+detach(selected_df)
+attach(x)
+```
+
+## First models
+
+In this section we are going to try out four models, in order to select the most interesting from which to start doing a model selection. Each model will be followed by four plots about the residuals and a plot showing the predictions versus the real value. In the last plot, the closer the points to the bisector, the better the estimate. We start with the general sense model created using the four intuitive variables shown in the previous section.  
+
+##### General Sense Model
+
+In this part, there are two models related to the guessed variables we selected earlier. They were ***overall***, ***international_reputation***, ***age*** and ***potential***. This first model is done with respect to the original value variable. All the variables are significant, as well as the whole model. The Adjusted R-squared statistic has a value of 0.5984. The residuals plots show that the model isn't able to represent in a proper way the value. The variance increases with the fitted values and the residuals are clearly not normal distributed. This model is not good. We understand this even from the plot of the predictions. We see that some values were even predicted with a tiny negative value. This model is ill-specified and so the model has to be changed. 
+
+```{r fig.align="center"}
+# initial model, 4 variables
+initial.mod <- lm(value_eur~overall+potential+age+international_reputation,data=x)
+summary(initial.mod)
+par(mfrow=c(2,2))
+plot(initial.mod) 
+par(mfrow=c(1,1))
+```
+```{r fig.align="center"}
+initial.predicted <- predict(initial.mod)
+plot(initial.predicted,value_eur,xlab="predicted values",ylab="actual values", main = "Predictions")
+abline(a=0,b=1)
+```
+
+We now analyze the second model. This time the value is in logarithmic scale (10) and so we are fitting a log-linear model. The logarithmic transformation helps us getting a variable that is better distributed while maintaining a right ratio between values by its monotonic property. The explanatory variables are the same as before. All the variables are highly significant, but ***international_reputation*** which is only significant. The Adjusted R-squared value has increased to 0.9768. Even if the R-squared seems really good, some particulars about residuals are not convincing. In fact, even though residuals now look better distributed and appear to be more compact, their distribution appears to be not normal even in this case. In particular, the distribution has heavy tails with respect to a normal distribution. We're most likely missing something to properly explain the relationship between the value of players and their attributes. The plot of the predictions has now more values on the bisect, but shows that, after a while, the model fits greater values than the real ones. 
+
+```{r}
+# initial log model, 4 variables
+initial.log.mod <- lm(log10(value_eur)~overall+potential+age+international_reputation,data=x)
+summary(initial.log.mod)
+par(mfrow=c(2,2))
+plot(initial.log.mod) 
+par(mfrow=c(1,1))
+```
+```{r fig.align="center"}
+initial.log.predicted <- predict(initial.log.mod)
+par(mfrow=c(1,2))
+plot(initial.log.predicted,log10(x$value_eur),xlab="predicted values (log)",ylab="actual values (log)", main = "Log Predictions")
+abline(a=0,b=1)
+plot(10^initial.log.predicted,x$value_eur,xlab="predicted values",ylab="actual values", main = "Predictions")
+abline(a=0,b=1)
+par(mfrow=c(1,1))
+```
+
+Both these two models have some problems, but, in a certain way, behave really well considering that they came from a subjective small selection of variables following our intuitions. The log-linear model is more convincing, and so we have decided, from now on, to use only the log transformation for the value variable. This seems the most promising way to proceed, becasue of the increase of the fit from 0.59 to 0.97 and a better residual distribution overall.
+
+##### Complete Model
+
+The next model takes into consideration all the variables left in the dataset. It is the simpler choice from which to start understanding which variables are the best to fit the model. On the other hand, even if overfitting, it is a general way to see up to what point the variables we have can explain the ***value_eur*** one. As said before, we now perform only log-linear models. The complete model contains several variables which figure as not significative, 16 variables highly significant and several others with smaller significance. The model itself is highly significant and the Adjusted R-squared measure reaches a value of 0.9937. The fit seems really good, and the residuals reach their best. Normality assumption seems not to be achievable, but a low amount of high tails lead us to the suspicion that not all the values are in line with the ability of the players. There seems to be one point that behaves as an outlier and there is another which creates high leverage. These two points seems to not have such a bad influence on the others. The values in the prediction plot are now centered and mostly randomly distributed and this is a good sign. Before proceeding in selecting the variables to keep, we are going to consider another model.    
+
+```{r}
+x$value_eur <- log10(value_eur)
+detach(x)
+attach(x)
+log.mod.out <- lm(value_eur~.,data=x)
+summary(log.mod.out)
+par(mfrow=c(2,2))
+plot(log.mod.out)
+par(mfrow=c(1,1))
+log.predicted <- predict(log.mod.out)
+par(mfrow=c(1,2))
+plot(log.predicted,value_eur,xlab="Predicted Value (log)",ylab="Actual value (log)", main = "Log Predictions")
+abline(a=0,b=1)
+plot(10^log.predicted,10^value_eur,xlab="Predicted Value",ylab="Actual value", main = "Prediction")
+abline(a=0,b=1)
+par(mfrow=c(1,1))
+```
+
+##### Model with interactions
+
+The last model we decided to try is a more general version of the complete one. In particular, to include some interaction while keeping the model small enough to see all the terms in the summary, we added them only between the initial intuitive variables. We saw they were really good to fit a model themselves, and so we took them as most representative. The model obtained is very similar, almost identical, to the complete one. The important fact is that the interaction terms seems to be significant. The fit even increased a little, reaching an Adjusted R-squared value of 0.9944.
+
+```{r}
+# only interactions that make sense
+dif.mod.out <- lm(value_eur~.+age:overall+age:potential+age:international_reputation+potential:international_reputation+potential:overall+overall:international_reputation,data=x)
+summary(dif.mod.out)
+par(mfrow=c(2,2))
+plot(dif.mod.out)
+par(mfrow=c(1,1))
+dif.predicted <- predict(dif.mod.out)
+par(mfrow=c(1,2))
+plot(dif.predicted,value_eur,xlab="Predicted Value (log)",ylab="Actual value (log)", main = "Log Predictions")
+abline(a=0,b=1)
+plot(10^dif.predicted,10^value_eur,xlab="Predicted Value",ylab="Actual value", main = "Predictions")
+abline(a=0,b=1)
+par(mfrow=c(1,1))
+```
+
+Furthermore, in order to see if the interaction terms are useful or not, an ANOVA test between the complete model and the interaction one is now performed. From the test, it seems that the small change is significant and so we can take the interaction model as the one from which to start selecting the final one.   
+```{r}
+## anova to check that there's actually a difference between the two models
+anova(log.mod.out,dif.mod.out)
+```
+
+## Model selection 
+
+In this section we are going to select the best fit for our final model by using two types of variable selection procedures. In the first case we are going to perform a forward selection starting from the empty model up to the latest interaction model. In the second model, we will perform the lasso regression, putting a penalization over the weights and trying to shrink as many of them as possible to 0 (but still keeping the most informative ones) in order to get a simpler model. 
+
+##### Forward Selection
+
+Let's begin with a forward selection. In the R chunks, even the backward selection code is provided. For starting, we import the ***caret*** library that is used to get all the dummies out of the factors. All the levels are so described using one-hot-encoding and one level per factor is then deleted in order to avoid singularity of our matrix. Then the ***leaps*** library is imported. Using _regsubsets_ function, a forward selection is automatically performed with a maximum of 60 variables selectable. A plot is included below, showing for various measures - Adjusted R-squared, Mallow's Cp and BIC -  which is the optimal number of variables to select. To select a smaller model, we have preferred to use the value indicated by the Bayesian information criterion (BIC). The model chosen is then shown with its residual plots. The usual plot for the prediction is also shown. From these plots we cannot see important problems. The variables selected by the selection procedure are highly interpretable and are very useful to understand the relationship between a player's attributes and his value. Residuals appeared to share the same behaviour with the previous seen model, all the while maintaining a great explanatory power. 
+
+```{r}
+#install.packages("caret")
+library(caret)
+dmy <- dummyVars(" ~ .", data = x)
+trsf <- data.frame(predict(dmy, newdata = x))
+trsf <- trsf[-c(1),] #if we take out messi
+#colnames(trsf)
+trsf <- trsf[,-c(7,10,53,57,59,64)] # evitate linear dependence
+detach(x)
+#detach(trsf)
+attach(trsf)
+```
+```{r}
+#install.packages("leaps")
+library(leaps)
+
+regfit.fwd <- regsubsets(value_eur~.+age:overall+age:potential+age:international_reputation+potential:international_reputation+potential:overall+overall:international_reputation,
+                         data=trsf,
+                         nvmax=60,
+                         method="forward")
+regfit.back <- regsubsets(value_eur~.+age:overall+age:potential+age:international_reputation+potential:international_reputation+potential:overall+overall:international_reputation,
+                          data=trsf,
+                          nvmax=60,
+                          method="backward")
+reg.summary <- summary(regfit.fwd)
+back.summary <- summary(regfit.back)
+```
+```{r}
+par(mfrow=c(2,2))
+# residual sum of squares
+plot(reg.summary$rss,xlab="Number of Variables",ylab="RSS",type="l")
+
+# adjusted-R^2 with its largest value
+plot(reg.summary$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
+numf = which.max(reg.summary$adjr2)
+points(numf,reg.summary$adjr2[numf], col="red",cex=2,pch=20)
+
+# Mallow's Cp with its smallest value
+plot(reg.summary$cp,xlab="Number of Variables",ylab="Cp",type='l')
+numf = which.min(reg.summary$cp)
+points(numf,reg.summary$cp[numf],col="red",cex=2,pch=20)
+
+# BIC with its smallest value
+plot(reg.summary$bic,xlab="Number of Variables",ylab="BIC",type='l')
+numf = which.min(reg.summary$bic)
+points(numf,reg.summary$bic[numf],col="red",cex=2,pch=20)
+mtext("Number of paremeter suggested by different indices", side = 3, line = -2, outer = TRUE)
+par(mfrow=c(1,1))
+```
+```{r}
+#par(mfrow=c(2,2))
+## residual sum of squares
+#plot(back.summary$rss,xlab="Number of Variables",ylab="RSS",type="l")
+
+## adjusted-R^2 with its largest value
+#plot(back.summary$adjr2,xlab="Number of Variables",ylab="Adjusted RSq",type="l")
+#numb = which.max(back.summary$adjr2)
+#points(numb,back.summary$adjr2[numb], col="red",cex=2,pch=20)
+
+## Mallow's Cp with its smallest value
+#plot(back.summary$cp,xlab="Number of Variables",ylab="Cp",type='l')
+#numb = which.min(back.summary$cp)
+#points(numb,back.summary$cp[numb],col="red",cex=2,pch=20)
+
+## BIC with its smallest value
+#plot(back.summary$bic,xlab="Number of Variables",ylab="BIC",type='l')
+#numb = which.min(back.summary$bic)
+#points(numb,back.summary$bic[numb],col="red",cex=2,pch=20)
+#par(mfrow=c(1,1))
+```
+```{r}
+variables <- coef(regfit.fwd,numf)
+#variables <- coef(regfit.back,numb)
+col_names <- names(variables)
+#col_names
+chosen_variables <- paste(col_names[2:length(col_names)], collapse = '+')
+formula <- as.formula(paste("value_eur", "~", chosen_variables)) 
+#formula
+
+best.bic <- lm(formula,data=trsf)
+summary(best.bic)
+```
+```{r}
+par(mfrow=c(2,2))
+plot(best.bic)
+par(mfrow=c(1,1))
+bic.predicted <- predict(best.bic)
+par(mfrow=c(1,2))
+plot(bic.predicted,trsf$value_eur,xlab="Predicted Value (log)",ylab="Actual value (log)", main = "Log Predictions")
+abline(a=0,b=1)
+plot(10^bic.predicted,10^trsf$value_eur,xlab="Predicted Value",ylab="Actual value", main = "Predictions")
+abline(a=0,b=1)
+par(mfrow=c(1,1))
+```
+
+##### Lasso Regression
+
+To perform a LASSO regression, all the interactions added in the model were added to the data frame. Using the ***glmnet*** library and a cross validation method, the best lambda was chosen and then applied to fit the lasso model. To take into account the different type of variables involved, they were all standardized in the method. This is going to help selecting the most useful variables while all are in the same scale. The coefficient values and the selection done by the model are shown below. A pair of residual plots are shown as well as the prediction one. Also in this case the model seems to perform really well except for some residuals.
+
+```{r}
+lasso_mat = trsf[,-c(6)]
+lasso_mat$agepotential = trsf$age*trsf$potential
+lasso_mat$ageoverall = trsf$age*trsf$overall
+lasso_mat$ageintrep = trsf$age*trsf$international_reputation
+lasso_mat$potentialintrep = trsf$potential*trsf$international_reputation
+lasso_mat$overallpotential = trsf$overall*trsf$potential
+lasso_mat$overallintrep = trsf$overall*trsf$international_reputation
+
+library(glmnet)
+matr = data.matrix(lasso_mat)
+cv.lasso <- cv.glmnet(matr, trsf$value_eur, alpha = 1)
+lasso_model <- glmnet(matr, trsf$value_eur, alpha = 1, lambda = cv.lasso$lambda.min, standardize = TRUE)
+coef(lasso_model)
+fitted_lasso = predict(lasso_model, matr)
+residuals_lasso = trsf$value_eur - fitted_lasso
+par(mfrow = c(1,2))
+plot(fitted_lasso,residuals_lasso, main = "Residuals vs Fitted")
+qqnorm(residuals_lasso)
+qqline(residuals_lasso)
+par(mfrow=c(1,1))
+
+par(mfrow=c(1,2))
+plot(fitted_lasso,trsf$value_eur,xlab="Predicted Value (log)",ylab="Actual value (log)", main = "Log Predictions")
+abline(a=0,b=1)
+plot(10^fitted_lasso,10^trsf$value_eur,xlab="Predicted Value",ylab="Actual value", main = "Predictions")
+abline(a=0,b=1)
+par(mfrow=c(1,1))
+```
+
+The two models perform in a similar way even if a good number of variables selected are different. It seems that ***phase***, ***category*** and ***position*** are fundamental for both the models. What we obtain, in general, is that the statistics used in the game are in line with the value of the player and can be used to predict it. Some transformations we did in the preprocessing seem to help a lot, while the forward selection confirms the importance of the four initial guesses for the general sense model. The model we have decided to keep as the best is the forward selected one because it appears simpler to use and has better interpretability. Starting from this model, we are now going to look into the first application, searching for underrated and overrated players.
+
+
+## Practical Applications 
+
+In this section a pair of applications are reported. The first is the main application of the model. The second extends to the usage of other statistics of the dataset in order to try to predict the result of a football match. 
+
+
+##### Underrated and Overrated players
+
+Chosen the model, we are going to use it in our first application. We now assume that our model gives the correct value of each player, and by this we watch for the 20 more distant observations from it. We are going to see which players are the most underrated and overrated for the model. In particular, we report two types of ranking, the first based on the ratio between prediction and real value, the second based on the greatest positive/negative residuals. The two rankings are reported using the original scale of the ***value*** variable. The main distinction between the two rankings is that the ratio-based seems more fair, since it's acting through the whole data frame, while the residual-based focuses on the players which already have a large value and get a high residual from the model (both positive or negative). 
+\
+&nbsp;
+This application is pretty general and needs a validation from some experts in order to see if the reported results have a real world sense. There may be some variables not available - like the tendency to be injured - that could change the way we have to interpret the results given by the model. On the other hand, it can be simple, fast and useful as a basis from which to start. Working with data, it is also possible to select different age groups or statistics ranges in order to select those categories of players in which you are more interested. 
+For example, a similar kind of application has already been successfully tested in the past in the baseball context as described in the movie - based on a true story - Moneyball (<https://en.wikipedia.org/wiki/Moneyball_(film)>).
+
+```{r}
+ratio <- 10^bic.predicted/10^value_eur
+#hist(ratio,breaks=20,col="orange")
+#boxplot(ratio)
+ratio_df <- data.frame(names= names[-c(1)],
+                       value = 10^value_eur,
+                       predicted_value = 10^bic.predicted,
+                       ratio = ratio 
+                       )
+residuals <- best.bic$residuals
+residuals_df <- data.frame(names= names[-c(1)],
+                           value = 10^value_eur,
+                           predicted_value = 10^bic.predicted,
+                           residual = 10^value_eur - 10^bic.predicted
+                           )
+log.ratio <- bic.predicted/value_eur
+log.ratio.df <- data.frame(names= names[-c(1)],
+                           value = value_eur,
+                           predicted_value = bic.predicted,
+                           ratio = log.ratio
+                            )
+```
+```{r}
+print("Undervalued:")
+ratio_df <- ratio_df[order(ratio_df$ratio,decreasing=TRUE),] # più sottovalutati in percentuale
+residuals_df <- residuals_df[order(residuals_df$residual, decreasing = FALSE),] #sottovalutati
+#log.ratio.df <- log.ratio.df[order(log.ratio.df$ratio,decreasing=TRUE),] # sottovalutati log
+#cbind(head(ratio_df, 20), head(residuals_df,20))#, head(log.ratio.df,20))
+head(ratio_df, 20)
+head(residuals_df,20)
+print("Overvalued:")
+ratio_df <- ratio_df[order(ratio_df$ratio,decreasing=FALSE),] # più overvalutati in percentuale
+residuals_df <- residuals_df[order(residuals_df$residual,decreasing = TRUE),]  #sopravvalutati
+#log.ratio.df <- log.ratio.df[order(log.ratio.df$ratio,decreasing=FALSE),] # sopravalutati log
+#cbind(head(ratio_df, 20), head(residuals_df,20))#, head(log.ratio.df,20))
+head(ratio_df, 20)
+head(residuals_df,20)
+```
+
+<!-- If a test set was selected, some predictions can be calculated. In this case, all the test set players are reported with their estimate and the confidence interval related. For a general understanding of how good is the model, an average percentage error is calculated. -->
+
+```{r}
+## if a test set has been defined
+#dmy <- dummyVars(" ~ .", data = test_set[,-1])
+#trsf2 <- data.frame(predict(dmy, newdata = test_set))
+#colnames(trsf2)
+#trsf2 <- trsf2[,-c(7,10,53,57,59,64)]
+#predictions <- predict(best.bic,newdata = trsf2, interval="prediction")
+#comp <- data.frame(actual_value = trsf2$value_eur/1e6,
+#                   prediction = 10^predictions[,1]/1e6,
+#                   lower= 10^predictions[,2]/1e6,
+#                   upper = 10^predictions[,3]/1e6)
+#sum((trsf2$value_eur/1e6 > comp$lower) & (trsf2$value_eur/1e6 < comp$upper)) / 500
+#head(comp)
+
+#max((abs(trsf2$value_eur/1e6-comp$prediction)/(trsf2$value_eur/1e6)))
+#which.min((abs(trsf2$value_eur/1e6-comp$prediction)/(trsf2$value_eur/1e6)))
+
+#avg_percentage_error <- mean(abs(trsf2$value_eur/1e6-comp$prediction)/(trsf2$value_eur/1e6))
+#avg_percentage_error
+```
+
+##### Match modeling using Elos and overall strength of a team 
+
+In this application we are interested in creating a model that is able to predict the general result of a football match by the side of the home team: win, draw or lose. This is done by using three models that predicts the probability of winning, drawing or losing. The highest probability obtained is used to predict the result of that match. We are going to use a very simple model and see how it performs on the same data it was trained on. At the end, we are going to compare the probability we are estimating with the intrinsic one given by the real odds used by bookmakers. 
+\
+&nbsp;
+\
+&nbsp;
+For this application, the dataset was taken from <https://www.football-data.co.uk/italym.php>. We use also some data taken from <http://clubelo.com/>. The first dataset contains match results while in the _clubelo_ site, the Elo ratings were taken. As the site reports: "A club's Elo rating is an estimation of its strength based on past results allowing predictions for the future". We are going to use Elo ratings to dynamically change the estimated strenght of a team. A small (inactive) preprocessing is reported, in which the result is encoded, given the goals on both parts. Furthermore the Elo values are calculated and correctly assigned to all the teams during all the season. Two new tables are then saved and loaded for the starting of the analysis.
+
+```{r}
+# library(dplyr)
+# library(elo)
+# library(base)
+# 
+# match = read.csv("seriea2021.csv", header = T, stringsAsFactors = T, encoding = "UTF-8")[,-c(8:105)]
+# squad = data.frame(squad = unique(match$HomeTeam))
+# 
+# # Rating elo before the start (18/09/2020)
+# # http://clubelo.com/
+# 
+# elo = c(1640,1546,1579,1548,1633, 
+#         1835,1764,1583, 1580, 1586, 
+#         1839, 1491, 1760,1491,1745,
+#         1582,1557,1593,1726,1823)
+# 
+# squad = cbind(squad, elo)
+# 
+# # ------------------------------------------------------------
+# # Identification of the match results and subset selection
+# # ------------------------------------------------------------
+# match = match %>% mutate(result = if_else(FTHG > FTAG, 1, if_else(FTHG == FTAG, 0.5, 0)))
+# matches = match %>% select(Date, HomeTeam, AwayTeam, result)
+# 
+# # 1 = HomeTeam wins
+# # 0.5 = Draw
+# # 0 = AwayTeam wins
+# 
+# # ------------------------------------------------------------
+# # Elo calculation during the championship
+# # ------------------------------------------------------------
+# n = dim(matches)[1]
+# elo_matrix = matrix(0, nrow = n, ncol = 2)
+# for (i in 1:n) {
+#   
+#   match = matches[i,]
+#   
+#   # Calculate elo pre-match
+#   teamA_elo = subset(squad, squad == match$HomeTeam)$elo
+#   teamB_elo = subset(squad, squad == match$AwayTeam)$elo
+#   
+#   # Elo update
+#   new_elo = elo.calc(wins.A = match$result, elo.A = teamA_elo, elo.B = teamB_elo, k = 20)
+#   
+#   # The results come back as a data.frame
+#   # with team A's new rating in row 1 / column 1
+#   # and team B's new rating in row 1 / column 2
+#   teamA_new_elo = new_elo[1, 1]
+#   teamB_new_elo = new_elo[1, 2]
+#   elo_matrix[i,] = c(teamA_new_elo, teamB_new_elo)
+#   
+#   # We then update the ratings for teams A and B
+#   # and leave the other teams as they were
+#   squad = squad %>% mutate(elo = if_else(squad == match$HomeTeam, teamA_new_elo,if_else(squad == match$AwayTeam, teamB_new_elo, elo)))
+# }
+# 
+# # ------------------------------------------------------------
+# # Associate teams elo to each match 
+# # ------------------------------------------------------------
+# matches$HomeTeam_elo = elo_matrix[,1]
+# matches$AwayTeam_elo = elo_matrix[,2]
+# 
+# squad = data.frame(squad = unique(matches$HomeTeam))
+# n_squad = dim(squad)[1]
+# n_matches = dim(matches)[1]
+# elo_trend = matrix(0, nrow = n_squad, ncol = 38)
+# for(i in 1:n_squad){
+#   supp = c()
+#   for(j in 1:n_matches){
+#     if((matches$HomeTeam[j] == squad[i,1])){
+#       supp = c(supp, matches$HomeTeam_elo[j])
+#     }    
+#     if((matches$AwayTeam[j] == squad[i,1])){
+#       supp = c(supp, matches$AwayTeam_elo[j])
+#     }
+#   }
+#   elo_trend[i,] = supp
+# }
+# 
+# # ------------------------------------------------------------
+# # Trend of elo for each squad during the championship
+# # ------------------------------------------------------------
+# final_matrix = as.data.frame(cbind(squad, elo, elo_trend))
+# 
+# rm(elo_matrix)
+# rm(elo_trend)
+# rm(new_elo)
+# rm(squad)
+# 
+# matches$HomeTeam_elo = rep(0,380)
+# matches$AwayTeam_elo = rep(0,380)
+# 
+# elo_assigment = function(team){
+#   
+#   # Extract elo vector from the final_matrix for this particular team
+#   elo_squad = final_matrix[final_matrix$squad == team, 2:dim(final_matrix)[2]]
+#   elo_squad = as.vector(t(elo_squad))
+#   
+#   # Convert final_matrix whick contains elo
+#   final_matrix = as.matrix(final_matrix[,2:dim(final_matrix)[2]])
+#   
+#   # Extract the index match for this particular team 
+#   idx_home = as.numeric(rownames(matches[(matches$HomeTeam == team),]))
+#   idx_away = as.numeric(rownames(matches[(matches$AwayTeam == team),]))
+#   idx_squad_match = sort(c(idx_home, idx_away))
+#   
+#   # Fill the matches dataframe with elo for this particular Team
+#   count = 1
+#   for(i in idx_squad_match){
+#     if(matches$HomeTeam[i] == team){
+#       matches$HomeTeam_elo[i] = elo_squad[count] 
+#     }
+#     if(matches$AwayTeam[i] == team){
+#       matches$AwayTeam_elo[i] = elo_squad[count] 
+#     }
+#     count = count + 1
+#   }
+#   matches
+# }
+# 
+# teams = unique(matches$HomeTeam)
+# for(team in teams){
+#   matches = elo_assigment(team)
+# }
+# 
+# rm(match)
+# 
+# write_csv(final_matrix, file = "EloMatrix.csv")
+# write_csv(matches, file = "new_seriea2021.csv")
+```
+
+\
+&nbsp;
+For the models estimation, three new variables are created as vectors taking value 1 when the home team wins/draws/loses, and 0 otherwise. Only the 16 most important players of every team are selected by omitting the team position _"SUB"_. For taking into account the strength of a team, the ***overall*** statistic is summed up for all the players in that team. This value is then rescaled for all the matches of the season by a weight calculated using the elo. This weight is equal to the percentage of change of elo rating with respect to beginning. The ***overall_strength*** of each team thus calculated is then put in the right position into the matrix of the matches. An additive factor of 4.5 is added to home_overall_strenght to take into account the home advantage.
+
+```{r}
+elo = read.csv("EloMatrix.csv", header = T, stringsAsFactors = T, encoding = "UTF-8")
+match = read.csv("new_seriea2021.csv", header = T, stringsAsFactors = T, encoding = "UTF-8")
+seriea = read.csv("players_21_preproc_pl.csv", header = T, stringsAsFactors = F, encoding = "UTF-8")
+
+# -----------------------------------------------------
+# One-hot encoding on the match results
+# -----------------------------------------------------
+n_match = dim(match)[1]
+home_win = rep(0, n_match)
+draw = rep(0, n_match)
+away_win = rep(0, n_match)
+
+match = cbind(match, home_win, draw, away_win)
+
+match[match$result == 1, "home_win"] = 1
+match[match$result == 0.5, "draw"] = 1
+match[match$result == 0, "away_win"] = 1
+
+# Change name to Hellas Verona
+seriea[seriea$club_name=="Hellas Verona","club_name"] = "Verona"
+
+# -----------------------------------------------------
+# Assign attack-mid-defense parameters to each team
+# -----------------------------------------------------
+pos = c("LW","LF","CF","ST","RW","RF","LS","RS","LAM","LM","CDM","CM","CAM","RM","RCM","LCM","LDM","RAM","RDM","RES","LB","LWB","RB","RWB","GK","LCB","RCB","CB") 
+
+squad = as.data.frame(unique(match$HomeTeam), stringsAsFactors = T)
+squad_list = unique(match$HomeTeam)
+n_squad = length(squad_list)
+pos_squad = rep(0, n_squad)
+for(i in 1:n_squad){
+  posi = 0
+  posi = mean(seriea[(seriea$team_position %in% pos) & (seriea$club_name == squad_list[i]), 
+                    "overall"])
+  pos_squad[i] = posi
+}
+
+# -----------------------------------------------------
+# Rescale att-mid-def parameters based on elo ratio
+# with the first match
+# -----------------------------------------------------
+rescale_matrix = matrix(0, nrow = (dim(elo)[1]), ncol = (dim(elo)[2]-2))
+for(i in 1:n_squad){
+  rescale_matrix[i,] = as.vector(t(elo[i,3:dim(elo)[2]]/elo[i,3]))
+}
+rescale_matrix = as.data.frame(cbind(squad, rescale_matrix))
+
+name_squad = unique(match$HomeTeam)
+pos_matrix = t(as.matrix(t(pos_squad)))
+
+overall_matrix = pos_matrix * rescale_matrix[,2:40]
+
+# -----------------------------------------------------
+# Assign to each match the related attack-mid-def strenght
+# -----------------------------------------------------
+match$home_overall_strength = rep(0, 380)
+match$away_overall_strength = rep(0, 380)
+
+j = 1
+for(team in squad_list){
+  count = 1
+  for(i in 1:380){
+    if(match$HomeTeam[i] == team){
+      match$home_overall_strength[i] = overall_matrix[j,count]
+      count = count+1
+    }
+    if(match$AwayTeam[i] == team){
+      match$away_overall_strength[i] = overall_matrix[j,count]
+      count = count+1
+    }
+  }
+  j = j+1
+}
+match$home_overall_strength = match$home_overall_strength + 4.5
+
+```
+
+To calculate the models, the difference between the ***overall_strengths*** of the two teams is calculated. This is used in the models to fit respectively the wins, draws and losses. In order to have probabilities as outputs, the models used were generalized linear models of binomial family with logit link function. The summary of the models are reported. The model used to predict the draw outcome has a non-significant covariate. This result is coherent with what has been also seen in the litterature. One interesting thing of these models is that the weights calculated in the win and loss models are very similar in value and of opposite sign. This means that the relationship home versus away is understood by the models.
+
+```{r}
+# -----------------------------------------------------
+# Model estimation
+# -----------------------------------------------------
+overall_diff = match$HomeTeam_elo-match$AwayTeam_elo
+
+mod_win = glm(formula = home_win ~ overall_diff,
+              family = "binomial", 
+              data = match)
+
+mod_draw = glm(formula = draw ~ overall_diff,
+               family = "binomial",
+               data = match)
+
+mod_loss = glm(formula = away_win ~ overall_diff,
+               family = "binomial", 
+               data = match)
+
+print("Home wins model: ")
+summary(mod_win)
+print("Draw model: ")
+summary(mod_draw)
+print("Home lose model: ")
+summary(mod_loss)
+```
+
+The probabilities calculated are used to see how much the model is able to predict the same data. The accuracy obtained is over 50% and is better than predicting always the same result. In the final plot the probabilities provided by the bookmaker B365 of home winning, calculated as odds, are compared with our home winning probabilities. There's a clear relationship between the results of our model and the results of the bookmaker, meaning that our model provides probabilities similar to the ones calculated with more complex models.
+
+```{r}
+# ----------------------------------------------------
+# Results
+# -----------------------------------------------------
+pred_win = predict(mod_win,type="response")
+pred_draw = predict(mod_draw, type="response")
+pred_loss = predict(mod_loss, type="response")
+
+prediction = cbind(pred_win, pred_draw, pred_loss)
+predicted_results = rep(0,380)
+for(i in 1:380){
+  if((prediction[i,1] > prediction[i,2]) & (prediction[i,1] > prediction[i,3])){
+    predicted_results[i] = 1
+  }
+  if((prediction[i,2] > prediction[i,1]) & (prediction[i,1] > prediction[i,3])){
+    predicted_results[i] = 0.5
+  }
+  if((prediction[i,3] > prediction[i,1]) & (prediction[i,1] > prediction[i,2])){
+    predicted_results[i] = 0
+  }
+}
+cat("Accuracy of the predictions: ",sum(predicted_results == match$result)/380) 
+cat("Accuracy of predicting only home wins: ",sum(1 == match$result)/380) 
+cat("Accuracy of predicting only home draws: ",sum(0.5 == match$result)/380) 
+cat("Accuracy of predicting only home loses: ",sum(0 == match$result)/380) 
+```
+```{r}
+quote = read.csv("seriea2021.csv",
+                 header = T,
+                 stringsAsFactors = T,
+                 encoding = "UTF-8")$B365H
+
+pred_win = predict(mod_win, type="response")
+plot(pred_win, 1/quote, main = "Probabilities", xlab = "estimated", ylab = "from quotes")
+abline(0,1, col="red")
+```
+
+## Conclusions
+
+In this project we wanted to establish if there was a relationship between the football data provided by FIFA 21 with the real world, to do so we tried to predict the market value of active professional players. We have also provided two useful applications that are dealt very frequently in statistical analysis in the soccer field. There are numerous works in this area because soccer is a difficult sport to model because it contains a lot of randomness.
+\
+&nbsp;
+
+
+The realization of this project has been an interesting journey into statistical analysis. From it we have learned how important it is to be able to analyze the variables at the start in order to get a good model. In particular, data preprocessing was the step that took most of the time and effort. In particular, we saw that sometimes transforming and grouping can really help in getting a simpler and more effective model. It has been interesting to see that sometimes a general sense model, using intuitive variables, is not that bad and that by model selection and regularization we can obtain different models but with similar explicative power.
+
+
+## References
+
+***Data taken at:***
+\
+&nbsp;
+https://www.kaggle.com/stefanoleone992/fifa-21-complete-player-dataset
+\
+&nbsp;
+https://www.football-data.co.uk/italym.php
+\
+&nbsp;
+http://clubelo.com/
+
+***Github:***
+\
+&nbsp;
+https://github.com/SunPy-FIS/Statistical-learning-2021
+
+***Cited:***
+\
+&nbsp;
+https://www.transfermarkt.it/uefa-champions-league/marktwerte/pokalwettbewerb/CL
+\
+&nbsp;
+https://en.wikipedia.org/wiki/Moneyball_(film)
+
+***Others:***
+\
+&nbsp;
+https://www.statista.com/statistics/1087391/global-sports-market-size/
+\
+&nbsp;
+Behravan, Iman and Razavi, Seyed Mohammad (2021). _A novel machine learning method for estimating football players' value in the transfer market_. Soft Computing. 25(3), 2499-2511.
+\
+&nbsp;
+Cotta, Leonardo and de Melo, POV and Benevenuto, Fabricio and Loureiro (2010). _Using fifa soccer video game data for soccer analytics_. International Journal of forecasting. 26(3), 460-470.
+\
+&nbsp;
+Hvattum, Lars Magnus and Arntzen, Halvard (2016). _Using ELO ratings for match result prediction in association football_. Workshop on large scale sports analytics. 
+\
+&nbsp;
+Dixon, Mark J and Coles, Stuart G (1997). _Modelling association football scores and inefficiencies in the football betting market_. Journal of the Royal Statistical Society: Series C (Applied Statistics). 46(2), 265-280.
+
+
+\
+&nbsp;
+_n.b. References are valid for the whole project: report and presentation.  All rights reserved._
+
+\
+&nbsp;
+```{r out.width='14%'}
+knitr::include_graphics("unipd.png")
+```
+\
+&nbsp;
